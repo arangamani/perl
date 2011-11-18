@@ -21,7 +21,7 @@ BEGIN {
     require './test.pl';
 }
 
-plan tests => 464;  # Update this when adding/deleting tests.
+plan tests => 466;  # Update this when adding/deleting tests.
 
 run_tests() unless caller;
 
@@ -1213,6 +1213,16 @@ EOP
         my $pat = "b";
         utf8::upgrade($pat);
         like("\xffb", qr/$pat/i, "/i: utf8 pattern, non-utf8 string, latin1-char preceding matching char in string");
+    }
+
+    {
+	# the test for whether the pattern should be re-compiled should
+	# consider the UTF8ness of the previous and current pattern
+	# string, as well as the physical bytes of the pattern string
+
+	for my $s ("\xc4\x80", "\x{100}") {
+	    ok($s =~ /^$s$/, "re-compile check is UTF8-aware");
+	}
     }
 
 } # End of sub run_tests
