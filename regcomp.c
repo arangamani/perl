@@ -104,12 +104,6 @@
 #define	STATIC	static
 #endif
 
-struct code_block {
-    STRLEN start;
-    STRLEN end;
-    OP     *block;
-} ;
-
 
 typedef struct RExC_state_t {
     U32		flags;			/* are we folding, multilining? */
@@ -151,7 +145,7 @@ typedef struct RExC_state_t {
     I32		in_lookbehind;
     I32		contains_locale;
     I32		override_recoding;
-    struct code_block *code_blocks;	/* positions of literal (?{})
+    struct reg_code_block *code_blocks;	/* positions of literal (?{})
 					    within pattern */
     int		num_code_blocks;	/* size of code_blocks[] */
     int		code_index;		/* next code_blocks[] slot */
@@ -4653,8 +4647,7 @@ Perl_re_op_compile(pTHX_ SV ** const patternp, int pat_count,
 	}
 	if (ncode) {
 	    pRExC_state->num_code_blocks = ncode;
-	    Newx(pRExC_state->code_blocks, ncode, struct code_block);
-	    SAVEFREEPV(pRExC_state->code_blocks);
+	    Newx(pRExC_state->code_blocks, ncode, struct reg_code_block);
 	}
     }
 
@@ -4754,6 +4747,7 @@ Perl_re_op_compile(pTHX_ SV ** const patternp, int pat_count,
 		if (is_bare_re)
 		    *is_bare_re = 1;
 		SvREFCNT_inc(re);
+		Safefree(pRExC_state->code_blocks);
 		return (REGEXP*)re;
 	    }
 	}
@@ -4810,6 +4804,7 @@ Perl_re_op_compile(pTHX_ SV ** const patternp, int pat_count,
 	    pat = newSVpvn_flags(exp, plen, SVs_TEMP |
 					(IN_BYTES ? 0 : SvUTF8(pat)));
 	}
+	Safefree(pRExC_state->code_blocks);
 	return CALLREGCOMP_ENG(eng, pat, orig_pm_flags);
     }
 
@@ -4819,6 +4814,7 @@ Perl_re_op_compile(pTHX_ SV ** const patternp, int pat_count,
 	&& memEQ(RX_PRECOMP(old_re), exp, plen))
     {
 	ReREFCNT_inc(old_re);
+	Safefree(pRExC_state->code_blocks);
 	return old_re;
     }
 
@@ -4920,6 +4916,7 @@ Perl_re_op_compile(pTHX_ SV ** const patternp, int pat_count,
 	    if (used_setjump) {
 		JMPENV_POP;
 	    }
+	    Safefree(pRExC_state->code_blocks);
 	    return old_re;
 	}
 
@@ -4980,6 +4977,7 @@ Perl_re_op_compile(pTHX_ SV ** const patternp, int pat_count,
     DEBUG_PARSE_r(PerlIO_printf(Perl_debug_log, "Starting first pass (sizing)\n"));
     if (reg(pRExC_state, 0, &flags,1) == NULL) {
 	RExC_precomp = NULL;
+	Safefree(pRExC_state->code_blocks);
 	return(NULL);
     }
 
@@ -5034,6 +5032,13 @@ Perl_re_op_compile(pTHX_ SV ** const patternp, int pat_count,
     RXi_SET( r, ri );
     r->engine= RE_ENGINE_PTR;
     r->extflags = pm_flags;
+    if (orig_pm_flags & PMf_HAS_CV) {
+	ri->code_blocks = pRExC_state->code_blocks;
+	ri->num_code_blocks = pRExC_state->num_code_blocks;
+    }
+    else
+	SAVEFREEPV(pRExC_state->code_blocks);
+
     {
         bool has_p     = ((r->extflags & RXf_PMf_KEEPCOPY) == RXf_PMf_KEEPCOPY);
         bool has_charset = (get_regex_charset(r->extflags) != REGEX_DEPENDS_CHARSET);
@@ -12203,6 +12208,9 @@ Perl_regfree_internal(pTHX_ REGEXP * const rx)
     if (ri->u.offsets)
         Safefree(ri->u.offsets);             /* 20010421 MJD */
 #endif
+    if (ri->code_blocks)
+	Safefree(ri->code_blocks);
+
     if (ri->data) {
 	int n = ri->data->count;
 	PAD* new_comppad = NULL;
@@ -12432,7 +12440,16 @@ Perl_regdupe_internal(pTHX_ REGEXP * const rx, CLONE_PARAMS *param)
     
     Newxc(reti, sizeof(regexp_internal) + len*sizeof(regnode), char, regexp_internal);
     Copy(ri->program, reti->program, len+1, regnode);
-    
+
+    reti->num_code_blocks = ri->num_code_blocks;
+    if (ri->code_blocks) {
+	Newxc(reti->code_blocks, ri->num_code_blocks, struct reg_code_block,
+		struct reg_code_block);
+	Copy(ri->code_blocks, reti->code_blocks, ri->num_code_blocks,
+		struct reg_code_block);
+    }
+    else
+	reti->code_blocks = NULL;
 
     reti->regstclass = NULL;
 
