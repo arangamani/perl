@@ -62,6 +62,7 @@ struct reg_code_block {
     STRLEN start;
     STRLEN end;
     OP     *block;
+    REGEXP *src_regex;
 };
 
 
