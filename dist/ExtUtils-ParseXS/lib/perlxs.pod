@@ -1921,6 +1921,52 @@ of a given type, taking care of the possible different size of integers
 and pointers.  There are also PTR2IV, PTR2UV, PTR2NV macros,
 to map the other way, which may be useful in OUTPUT sections.
 
+The variables that you can use in an INPUT or OUTPUT definition are:
+
+=over
+
+=item *
+
+I<$var> - the name of the input or output variable, eg. RETVAL for
+return values.
+
+=item *
+
+I<$type> - the raw C type of the parameter, any C<:> replaced with
+C<_>.
+
+=item *
+
+I<$ntype> - the supplied type with C<*> replaced with C<Ptr>.
+e.g. for a type of C<Foo::Bar>, I<$ntype> is C<Foo::Bar>
+
+=item *
+
+I<$arg> - the stack entry, that the parameter is input from or output
+to, e.g. C<ST(0)> 
+
+=item *
+
+I<$argoff> - the argument stack offset of the argument.  ie. 0 for the
+first argument, etc.
+
+=item *
+
+I<$pname> - the full name of the XSUB, with including the C<PACKAGE>
+name, with any C<PREFIX> stripped.  This is the non-ALIAS name.
+
+=item *
+
+I<$Package> - the package specified by the most recent C<PACKAGE>
+keyword.
+
+=item *
+
+I<$ALIAS> - non-zero if the current XSUB has any aliases declared with
+C<ALIAS>.
+
+=back
+
 =head2 Safely Storing Static Data in XS
 
 Starting with Perl 5.8, a macro framework has been defined to allow
