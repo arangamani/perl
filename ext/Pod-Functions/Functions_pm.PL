@@ -180,10 +180,10 @@ while (<DATA>) {
     chomp;
     s/^#.*//;
     next unless $_;
-    my($name, $type, $text) = split " ", $_, 3;
-    $Type{$name} = $type;
-    $Flavor{$name} = $text;
-    for my $t ( split /[,\s]+/, $type ) {
+    my($name, @data) = split "\t", $_;
+    $Flavor{$name} = pop @data;
+    $Type{$name} = join ',', @data;
+    for my $t (@data) {
         push @{$Kinds{$t}}, $name;
     }
 }
@@ -217,8 +217,7 @@ EOT
 foreach my $func (sort_funcs(keys %Flavor)) {
     my $desc = $Flavor{$func};
     die "No types listed for $func" unless $Type{$func};
-    my $types = join ',', @{$Type{$func}};
-    print $fh "$func\t$types\t$desc\n";
+    print $fh join("\t", $func, @{$Type{$func}}, $desc), "\n";
 }
 
 close $fh or die "Can't close '$temp': $!";
